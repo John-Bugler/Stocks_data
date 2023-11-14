@@ -1,0 +1,39 @@
+vytvorit file setup.py = jak vypada setup.py je videt v adresari ....
+
+
+-----------------------
+import sys
+from cx_Freeze import setup, Executable
+
+# Seznam balíčků, které chceme zahrnout
+packages = ['pyodbc', 'yfinance', 'pandas', 'datetime']
+
+# Konfigurace setup.py
+setup(
+    name='stocks_data',
+    version='1.0',
+    description='Stocks data converter',
+    options={
+        'build_exe': {
+            'packages': packages,
+            'include_files': [],  # Zde můžete specifikovat další soubory, které chcete zahrnout (pokud jsou potřeba)
+        }
+    },
+    executables=[
+        Executable(
+            'stocks_data.py',
+            base=None,  # Pro konzolovou aplikaci ponechte hodnotu None
+           
+        )
+    ]
+)
+
+
+
+-----------------------
+
+
+
+
+
+pousteni v kompilatoru v cmd = python setup.py build
