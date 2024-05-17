@@ -46,11 +46,11 @@ print(column_names)
 
 
 # uprava formatu datumu ve sloupci Date
-# Pøevedení sloupce 'Date' na formát 'YYYY-MM-DD'
+# Pï¿½evedenï¿½ sloupce 'Date' na formï¿½t 'YYYY-MM-DD'
 df['FormattedDate'] = pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d')
-# Nahrazení pùvodních hodnot novým sloupcem
+# Nahrazenï¿½ pï¿½vodnï¿½ch hodnot novï¿½m sloupcem
 df['Date'] = df['FormattedDate']
-# Odstranìní pomocného sloupce 'FormattedDate', pokud není potøeba
+# Odstranï¿½nï¿½ pomocnï¿½ho sloupce 'FormattedDate', pokud nenï¿½ potï¿½eba
 df = df.drop(columns=['FormattedDate'])
 
 
@@ -77,7 +77,7 @@ selected_columns = ['timestamp', 'date', 'ticker', 'open_price', 'close_price', 
 #print(df['date'])
 #print(df['ticker'])
 
-# Iterace pøes øádky DataFrame a vkládání vybraných sloupcù do databáze
+# Iterace pï¿½es ï¿½ï¿½dky DataFrame a vklï¿½dï¿½nï¿½ vybranï¿½ch sloupcï¿½ do databï¿½ze
 for index, row in df.iterrows():
     values = ', '.join([f"'{row[col]}'" if isinstance(row[col], str) else str(row[col]) for col in selected_columns])
     query = f"INSERT INTO [reports].[dbo].[revolut_stocks_prices] ({', '.join(selected_columns)}) VALUES ({values})"
