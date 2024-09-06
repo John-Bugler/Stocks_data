@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 # Knihovna pro konekteni a praci s DB
 import pyodbc
 
