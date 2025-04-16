@@ -1,28 +1,30 @@
 # -*- coding: utf-8 -*-
-# Knihovna pro konekteni a praci s DB
 import pyodbc
+import yfinance as yf
+import pandas as pd
+import time
+from datetime import datetime
 
+# Pripojeni k DB
 server = 'localhost'
 database = 'reports'
-
 connection = pyodbc.connect(f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};Trusted_Connection=yes')
 cursor = connection.cursor()
-# Tahání z DB tickery portfolia 
-cursor.execute("select ticker from [reports].[dbo].[revolut_stocks] where type = 'BUY - MARKET' group by ticker order by ticker asc;")
+
+# Tahani tickeru z DB
+cursor.execute("""
+    SELECT ticker 
+    FROM [reports].[dbo].[revolut_stocks] 
+    WHERE type = 'BUY - MARKET' 
+    GROUP BY ticker 
+    ORDER BY ticker ASC;
+""")
 portfolio_tickers = cursor.fetchall()
-
-# Úprava seznamu tickerů = způsob uložení položek [('AAPL',), ('ALB',),  -> odstraneni zavorek -> ['AAPL', 'ALB',
 portfolio_tickers_cleaned = [item[0] for item in portfolio_tickers]
-print(portfolio_tickers_cleaned)
+print("Tickery:", portfolio_tickers_cleaned)
 
-# Knihovna na tahání dat z yahoo finance
-import yfinance as yf
-# Knihovna pro manipulaci s daty
-import pandas as pd
-
-# Seznam možných suffixů pro burzy
-# suffixes = ['', '.HA', '.L', '.SW', '.PA', '.DE', '.AS', '.MI', '.TO', '.SI']
-suffixes = []
+# Funkce pro tahani dat pres yfinance
+suffixes = ['', '.HA', '.L', '.SW', '.PA', '.DE', '.AS', '.MI', '.TO', '.SI']
 
 def get_ticker_data(ticker):
     for suffix in suffixes:
@@ -37,37 +39,32 @@ def get_ticker_data(ticker):
                 return data
         except Exception as e:
             print(f"Error fetching {full_ticker}: {e}")
-    print(f"No data found for {ticker} with any suffix.")
+    print(f"No data found for {ticker}.")
     return None
 
+# Tahani dat
+df_list = []
 
-df_list = list()  # Vytvoření prázdného seznamu
-
-# Tahání informací k jednotlivým stockům podle tickeru a ukládání do listu
 for ticker in portfolio_tickers_cleaned:
+    if not ticker.isalpha():
+        print(f"Skipping unknown ticker: {ticker}")
+        continue
     data = get_ticker_data(ticker)
     if data is not None:
-        df_list.append(data)   # Metoda .append = přidání nové položky do seznamu na poslední místo
+        df_list.append(data)
+    time.sleep(1)  # pauza mezi dotazy (ochrana pred throttlingem)
 
-# Spojení "concat" do jednoho dataframe
-df = pd.concat(df_list) if df_list else pd.DataFrame()  # Kontrola, jestli není seznam prázdný
+# Spojeni vsech dat
+if df_list:
+    df = pd.concat(df_list)
 
-if not df.empty:
-    print(df)
-
-    # Vytiskne názvy všech sloupců v dataframe
-    column_names = df.columns
-    print(column_names)
-
-    # Úprava formátu datumu ve sloupci Date
+    # Odstraneni timezone z datetime objektu (bez chyby)
+    df['Date'] = df['Date'].apply(lambda x: x.tz_convert(None) if hasattr(x, 'tzinfo') and x.tzinfo is not None else x)
     df['FormattedDate'] = pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d')
     df['Date'] = df['FormattedDate']
     df = df.drop(columns=['FormattedDate'])
-
-    from datetime import datetime
     df['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
-    # Přejmenování sloupců, aby odpovídaly sloupcům v DB
     df = df.rename(columns={
         'Date': 'date',
         'Ticker': 'ticker',
@@ -78,16 +75,17 @@ if not df.empty:
         'Volume': 'volume'
     })
 
-    # Vkládám jen vybrané sloupce, v dataframe je více sloupců
     selected_columns = ['timestamp', 'date', 'ticker', 'open_price', 'close_price', 'high_price', 'low_price', 'volume']
 
-    # Iterace přes řádky DataFrame a vkládání vybraných sloupců do databáze
+    print(f"Fetched data for {len(df_list)} tickers out of {len(portfolio_tickers_cleaned)}.")
+
     for index, row in df.iterrows():
         values = ', '.join([f"'{row[col]}'" if isinstance(row[col], str) else str(row[col]) for col in selected_columns])
         query = f"INSERT INTO [reports].[dbo].[revolut_stocks_prices] ({', '.join(selected_columns)}) VALUES ({values})"
-        
         print(query)
         cursor.execute(query)
         connection.commit()
+else:
+    print("No data fetched.")
 
 connection.close()
